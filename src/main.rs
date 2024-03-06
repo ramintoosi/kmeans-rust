@@ -23,12 +23,17 @@ fn main() {
     let mut centers = random_centroids(&data, n_cluster);
     // println!("shape of centers {:?}", centers.shape());
     let mut indices: Array1<usize> = Array1::zeros(data.nrows());
-    for _ in 0..100{
+    let tol = 1e-10;
+    let mut iter = 0;
+    let max_ier = 100;
+    let mut max_change = f32::INFINITY;
+    while  (max_change > tol) & (iter < max_ier) {
+        iter += 1;
         assign_cluster_to_sample(&data, &centers, &mut indices);
-        update_centers(&data, &mut centers, &indices, n_cluster);
+        max_change = update_centers(&data, &mut centers, &indices, n_cluster);
     }
-    println!("Centers:\n{:?}",centers)
-
+    println!("Centers:\n{:?}",centers);
+    println!("Number of Iters: {iter} with max change: {max_change}");
 
 }
 
@@ -53,7 +58,7 @@ fn random_centroids(data : &Array2<f32>, n_cluster: usize) -> Array2<f32> {
     selected_rows
 }
 
-fn euclidean_distance(a: ArrayView1<f32>, b: ArrayView1<f32>) -> f32 {
+fn euclidean_distance(a: &ArrayView1<f32>, b: &ArrayView1<f32>) -> f32 {
     a.iter().zip(b.iter()).map(|(x, y)| (x - y).powi(2)).sum::<f32>().sqrt()
 }
 
@@ -63,7 +68,7 @@ fn assign_cluster_to_sample(data: &Array2<f32>, centers: &Array2<f32>, indices: 
         let mut min_index: usize = 0;
 
         for (index, center_row) in centers.rows().into_iter().enumerate(){
-            let distance = euclidean_distance(row, center_row);
+            let distance = euclidean_distance(&row, &center_row);
             if distance < min_distance{
                 min_distance = distance;
                 min_index = index;
@@ -73,7 +78,10 @@ fn assign_cluster_to_sample(data: &Array2<f32>, centers: &Array2<f32>, indices: 
     }
 }
 
-fn update_centers(data: &Array2<f32>, centers: &mut Array2<f32>, indices: &Array1<usize>, n_clusters: usize) {
+fn update_centers(data: &Array2<f32>,
+                  centers: &mut Array2<f32>,
+                  indices: &Array1<usize>, n_clusters: usize) -> f32 {
+    let mut max_change = f32::INFINITY;
     for index in 0..n_clusters {
         let matched_indices: Vec<usize> = indices.iter()
             .enumerate()
@@ -85,6 +93,11 @@ fn update_centers(data: &Array2<f32>, centers: &mut Array2<f32>, indices: &Array
             c += &data.row(*m_index);
         }
         c /= matched_indices.len() as f32;
+        let distance = euclidean_distance(&centers.row(index), &c.view());
         centers.row_mut(index as usize).assign(&c);
+        if distance < max_change{
+            max_change = distance;
+        }
     }
+    max_change
 }

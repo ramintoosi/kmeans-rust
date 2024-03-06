@@ -1,10 +1,11 @@
 use std::{
     env,
     fs::File,
-    error::Error
+    error::Error,
 };
+use std::ops::IndexMut;
 use csv::ReaderBuilder;
-use ndarray::{Array2, Axis};
+use ndarray::{Array2, ArrayView1, AssignElem};
 use ndarray_csv::{Array2Reader};
 use rand::seq::index::sample;
 use rand::thread_rng;
@@ -21,7 +22,9 @@ fn main() {
     let data = load_data(&file_path).expect("Error reading csv");
     println!("shape of data: {:?}", data.shape());
     let mut centers = random_centroids(&data, 10);
-    println!("shape of centers {:?}", centers.shape())
+    println!("shape of centers {:?}", centers.shape());
+    let mut indices: Vec<usize> = vec![0; data.nrows()];
+    assign_cluster_to_sample(&data, &centers, &mut indices);
 
 }
 
@@ -45,4 +48,24 @@ fn random_centroids(data : &Array2<f32>, n_cluster: usize) -> Array2<f32> {
     }
 
     selected_rows
+}
+
+fn euclidean_distance(a: ArrayView1<f32>, b: ArrayView1<f32>) -> f32 {
+    a.iter().zip(b.iter()).map(|(x, y)| (x - y).powi(2)).sum::<f32>().sqrt()
+}
+
+fn assign_cluster_to_sample(data: &Array2<f32>, centers: &Array2<f32>, indices: &mut Vec<usize>) {
+    for (index_sample, row) in data.rows().into_iter().enumerate(){
+        let mut min_distance = f32::INFINITY;
+        let mut min_index: usize = 0;
+
+        for (index, center_row) in centers.rows().into_iter().enumerate(){
+            let distance = euclidean_distance(row, center_row);
+            if distance < min_distance{
+                min_distance = distance;
+                min_index = index;
+            }
+        }
+        indices.index_mut(index_sample).assign_elem(min_index)
+    }
 }

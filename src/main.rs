@@ -7,7 +7,7 @@ use csv::ReaderBuilder;
 use ndarray::{Array1, Array2, ArrayView1, AssignElem};
 use ndarray_csv::{Array2Reader};
 use rand::seq::index::sample;
-use rand::thread_rng;
+use rand::{Rng, thread_rng};
 
 fn main() {
     // TODO: change it according to: https://docs.rs/csv/latest/csv/tutorial/index.html#reading-csv
@@ -16,11 +16,18 @@ fn main() {
         println!("Usage:\n./main [file_path]");
         return
     }
+    let _kpp = true;
     let n_cluster = 4;
     let file_path: &String = &args[1];
+
     let data = load_data(&file_path).expect("Error reading csv");
     // println!("shape of data: {:?}", data.shape());
-    let mut centers = random_centroids(&data, n_cluster);
+    let mut centers = if _kpp {
+        kmeans_pp(&data, n_cluster)
+    } else {
+        random_centers(&data, n_cluster)
+    };
+
     // println!("shape of centers {:?}", centers.shape());
     let mut indices: Array1<usize> = Array1::zeros(data.nrows());
     let tol = 1e-10;
@@ -45,7 +52,7 @@ fn load_data(file_path: &str) -> Result<Array2<f32>, Box<dyn Error>> {
 }
 
 
-fn random_centroids(data : &Array2<f32>, n_cluster: usize) -> Array2<f32> {
+fn random_centers(data : &Array2<f32>, n_cluster: usize) -> Array2<f32> {
     let n_rows = data.nrows();
     let mut rng = thread_rng();
     let mut selected_rows =
@@ -56,6 +63,39 @@ fn random_centroids(data : &Array2<f32>, n_cluster: usize) -> Array2<f32> {
     }
 
     selected_rows
+}
+
+fn kmeans_pp(data : &Array2<f32>, n_cluster: usize) -> Array2<f32> {
+    let n_rows = data.nrows();
+    let mut chosen_points: Vec<usize> = vec!();
+    let mut centers: Array2<f32> = Array2::zeros((n_cluster, data.ncols()));
+
+    // first center
+    chosen_points.push(thread_rng().gen_range(0..n_rows));
+    centers.row_mut(1).assign(&data.row(chosen_points[0]));
+
+    for i_center in 1..n_cluster {
+
+        let mut max_dist: f32 = -1.0;
+        let mut max_index: usize = 0;
+        for (i_sample, sample) in data.rows().into_iter().enumerate() {
+            if chosen_points.contains(&i_sample) {
+                continue
+            }
+            let mut c_dist: f32 = 0.0;
+            for i_prev_centers in 0..i_center {
+                c_dist += euclidean_distance(&sample, &centers.row(i_prev_centers));
+            }
+            if c_dist > max_dist {
+                max_dist = c_dist;
+                max_index = i_sample
+            }
+        }
+
+        chosen_points.push(max_index);
+        centers.row_mut(i_center).assign(&data.row(max_index))
+    }
+    centers
 }
 
 fn euclidean_distance(a: &ArrayView1<f32>, b: &ArrayView1<f32>) -> f32 {

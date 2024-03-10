@@ -1,5 +1,4 @@
 use std::{
-    env,
     error::Error,
 };
 use std::ops::IndexMut;
@@ -8,21 +7,34 @@ use ndarray::{Array1, Array2, ArrayView1, AssignElem};
 use ndarray_csv::{Array2Reader};
 use rand::seq::index::sample;
 use rand::{Rng, thread_rng};
+use clap::{Parser};
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, help = "path to the csv file")]
+    data_path: String,
+
+    #[arg(short, long, help = "number of clusters")]
+    num_cluster: usize,
+
+    #[arg(short, long, help = "Use Kmeans++ to initialize centers")]
+    kpp: bool
+
+
+}
 
 fn main() {
-    // TODO: change it according to: https://docs.rs/csv/latest/csv/tutorial/index.html#reading-csv
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 2 {
-        println!("Usage:\n./main [file_path]");
-        return
-    }
-    let _kpp = true;
-    let n_cluster = 4;
-    let file_path: &String = &args[1];
+
+    let cli = Args::parse();
+
+    let kpp = cli.kpp;
+    let n_cluster = cli.num_cluster;
+    let file_path = cli.data_path;
 
     let data = load_data(&file_path).expect("Error reading csv");
     // println!("shape of data: {:?}", data.shape());
-    let mut centers = if _kpp {
+    let mut centers = if kpp {
         kmeans_pp(&data, n_cluster)
     } else {
         random_centers(&data, n_cluster)
@@ -141,3 +153,5 @@ fn update_centers(data: &Array2<f32>,
     }
     max_change
 }
+
+

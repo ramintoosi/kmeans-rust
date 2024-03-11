@@ -19,8 +19,13 @@ struct Args {
     num_cluster: usize,
 
     #[arg(short, long, help = "Use Kmeans++ to initialize centers")]
-    kpp: bool
+    kpp: bool,
 
+    #[arg(short, long, help = "Maximum number of iterations", default_value = 1000)]
+    max_iter: i32,
+
+    #[arg(short, long, help = "maximum center change tolerance", default_value = 1e-4)]
+    tolerance: f32,
 
 }
 
@@ -42,11 +47,9 @@ fn main() {
 
     // println!("shape of centers {:?}", centers.shape());
     let mut indices: Array1<usize> = Array1::zeros(data.nrows());
-    let tol = 1e-10;
     let mut iter = 0;
-    let max_ier = 100;
     let mut max_change = f32::INFINITY;
-    while  (max_change > tol) & (iter < max_ier) {
+    while  (max_change > cli.tolerance) & (iter < cli.max_iter) {
         iter += 1;
         assign_cluster_to_sample(&data, &centers, &mut indices);
         max_change = update_centers(&data, &mut centers, &indices, n_cluster);

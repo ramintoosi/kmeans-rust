@@ -21,10 +21,10 @@ struct Args {
     #[arg(short, long, help = "Use Kmeans++ to initialize centers")]
     kpp: bool,
 
-    #[arg(short, long, help = "Maximum number of iterations", default_value = 1000)]
+    #[arg(short, long, help = "Maximum number of iterations", default_value = "1000")]
     max_iter: i32,
 
-    #[arg(short, long, help = "maximum center change tolerance", default_value = 1e-4)]
+    #[arg(short, long, help = "maximum center change tolerance", default_value = "1e-4")]
     tolerance: f32,
 
 }

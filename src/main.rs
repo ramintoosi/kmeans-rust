@@ -2,7 +2,7 @@ use std::{
     error::Error,
 };
 use std::ops::IndexMut;
-use csv::ReaderBuilder;
+use csv::{ReaderBuilder, Writer};
 use ndarray::{Array1, Array2, ArrayView1, AssignElem};
 use ndarray_csv::{Array2Reader};
 use rand::seq::index::sample;
@@ -12,10 +12,10 @@ use clap::{Parser};
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    #[arg(short, long, help = "path to the csv file")]
+    #[arg(short, long, help = "Path to the csv file")]
     data_path: String,
 
-    #[arg(short, long, help = "number of clusters")]
+    #[arg(short, long, help = "Number of clusters")]
     num_cluster: usize,
 
     #[arg(short, long, help = "Use Kmeans++ to initialize centers")]
@@ -24,8 +24,11 @@ struct Args {
     #[arg(short, long, help = "Maximum number of iterations", default_value = "1000")]
     max_iter: i32,
 
-    #[arg(short, long, help = "maximum center change tolerance", default_value = "1e-4")]
+    #[arg(short, long, help = "Maximum center change tolerance", default_value = "1e-4")]
     tolerance: f32,
+
+    #[arg(short, long, help = "Path to save indices as csv", default_value = "indices.csv")]
+    output_path: String
 
 }
 
@@ -54,8 +57,8 @@ fn main() {
         assign_cluster_to_sample(&data, &centers, &mut indices);
         max_change = update_centers(&data, &mut centers, &indices, n_cluster);
     }
-    println!("Centers:\n{:?}",centers);
     println!("Number of Iters: {iter} with max change: {max_change}");
+    let _ = write_csv(&indices, &cli.output_path);
 
 }
 
@@ -157,4 +160,15 @@ fn update_centers(data: &Array2<f32>,
     max_change
 }
 
+fn write_csv(indices: &Array1<usize>, output_path: &str) -> Result<(), Box<dyn Error>>{
 
+    let mut writer = Writer::from_path(output_path)?;
+
+    for &value in indices.iter() {
+        writer.write_record(&[value.to_string()])?;
+    }
+
+    writer.flush()?;
+    println!("Results wrote to {output_path}");
+    Ok(())
+}

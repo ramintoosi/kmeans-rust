@@ -9,6 +9,7 @@ use rand::seq::index::sample;
 use rand::{Rng, thread_rng};
 use clap::{Parser};
 
+// define arguments using clap
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -34,21 +35,24 @@ struct Args {
 
 fn main() {
 
+    // parse and get arguments
     let cli = Args::parse();
 
     let kpp = cli.kpp;
     let n_cluster = cli.num_cluster;
     let file_path = cli.data_path;
 
+    // load data
     let data = load_data(&file_path).expect("Error reading csv");
-    // println!("shape of data: {:?}", data.shape());
+
+    // initiate centers random or using kmeans++
     let mut centers = if kpp {
         kmeans_pp(&data, n_cluster)
     } else {
         random_centers(&data, n_cluster)
     };
 
-    // println!("shape of centers {:?}", centers.shape());
+    // main loop, assign indices and update centers
     let mut indices: Array1<usize> = Array1::zeros(data.nrows());
     let mut iter = 0;
     let mut max_change = f32::INFINITY;
@@ -58,12 +62,14 @@ fn main() {
         max_change = update_centers(&data, &mut centers, &indices, n_cluster);
     }
     println!("Number of Iters: {iter} with max change: {max_change}");
+
+    // write to csv file
     let _ = write_csv(&indices, &cli.output_path);
 
 }
 
 fn load_data(file_path: &str) -> Result<Array2<f32>, Box<dyn Error>> {
-
+    // this function loads data from the csv file
     let reader = ReaderBuilder::new().has_headers(false).from_path(file_path);
     let array_read: Array2<f32> = reader?.deserialize_array2_dynamic()?;
     Ok(array_read)
@@ -71,6 +77,7 @@ fn load_data(file_path: &str) -> Result<Array2<f32>, Box<dyn Error>> {
 
 
 fn random_centers(data : &Array2<f32>, n_cluster: usize) -> Array2<f32> {
+    // centers are randomly selected from the current set of samples
     let n_rows = data.nrows();
     let mut rng = thread_rng();
     let mut selected_rows =
@@ -84,6 +91,7 @@ fn random_centers(data : &Array2<f32>, n_cluster: usize) -> Array2<f32> {
 }
 
 fn kmeans_pp(data : &Array2<f32>, n_cluster: usize) -> Array2<f32> {
+    // centers are selected based on KMeans++ algorithm
     let n_rows = data.nrows();
     let mut chosen_points: Vec<usize> = vec!();
     let mut centers: Array2<f32> = Array2::zeros((n_cluster, data.ncols()));
@@ -92,6 +100,7 @@ fn kmeans_pp(data : &Array2<f32>, n_cluster: usize) -> Array2<f32> {
     chosen_points.push(thread_rng().gen_range(0..n_rows));
     centers.row_mut(1).assign(&data.row(chosen_points[0]));
 
+    // other centers
     for i_center in 1..n_cluster {
 
         let mut max_dist: f32 = -1.0;
@@ -117,10 +126,12 @@ fn kmeans_pp(data : &Array2<f32>, n_cluster: usize) -> Array2<f32> {
 }
 
 fn euclidean_distance(a: &ArrayView1<f32>, b: &ArrayView1<f32>) -> f32 {
+    // calculate Euclidean distance between two arrays
     a.iter().zip(b.iter()).map(|(x, y)| (x - y).powi(2)).sum::<f32>().sqrt()
 }
 
 fn assign_cluster_to_sample(data: &Array2<f32>, centers: &Array2<f32>, indices: &mut Array1<usize>) {
+    // finds the closest cluster to each sample using centers
     for (index_sample, row) in data.rows().into_iter().enumerate(){
         let mut min_distance = f32::INFINITY;
         let mut min_index: usize = 0;
@@ -139,6 +150,7 @@ fn assign_cluster_to_sample(data: &Array2<f32>, centers: &Array2<f32>, indices: 
 fn update_centers(data: &Array2<f32>,
                   centers: &mut Array2<f32>,
                   indices: &Array1<usize>, n_clusters: usize) -> f32 {
+    // update centers as the average of the samples within the cluster
     let mut max_change = f32::INFINITY;
     for index in 0..n_clusters {
         let matched_indices: Vec<usize> = indices.iter()
@@ -161,7 +173,7 @@ fn update_centers(data: &Array2<f32>,
 }
 
 fn write_csv(indices: &Array1<usize>, output_path: &str) -> Result<(), Box<dyn Error>>{
-
+    // write the result into a csv file
     let mut writer = Writer::from_path(output_path)?;
 
     for &value in indices.iter() {

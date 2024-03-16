@@ -33,35 +33,80 @@ struct Args {
 
 }
 
+#[derive(Default)]
+struct KMeans {
+    num_cluster: usize,
+    kpp: bool,
+    tolerance: f32,
+    max_iter: i32,
+    iter: Option<i32>,
+    max_change: Option<f32>
+
+}
+
+impl KMeans {
+    fn fit(&mut self, data: &Array2<f32>) -> Array1<usize> {
+        // initiate centers random or using kmeans++
+        let mut centers = if self.kpp {
+            kmeans_pp(&data, self.num_cluster)
+        } else {
+            random_centers(&data, self.num_cluster)
+        };
+
+        // main loop, assign indices and update centers
+        let mut indices: Array1<usize> = Array1::zeros(data.nrows());
+        let mut iter = 0;
+        let mut max_change = f32::INFINITY;
+        while  (max_change > self.tolerance) & (iter < self.max_iter) {
+            iter += 1;
+            assign_cluster_to_sample(&data, &centers, &mut indices);
+            max_change = update_centers(&data, &mut centers, &indices, self.num_cluster);
+        }
+        let _ = self.iter.insert(iter);
+        let _ = self.max_change.insert(max_change);
+        indices
+    }
+
+    fn get_iter(&self) -> i32 {
+        if self.iter.is_some() {
+            self.iter.unwrap()
+        }
+        else {
+            0
+        }
+    }
+
+    fn get_max_change(&self) -> f32 {
+        if self.max_change.is_some() {
+            self.max_change.unwrap()
+        } else {
+            f32::INFINITY
+        }
+    }
+    
+}
+
 fn main() {
 
     // parse and get arguments
     let cli = Args::parse();
-
-    let kpp = cli.kpp;
-    let n_cluster = cli.num_cluster;
     let file_path = cli.data_path;
 
     // load data
     let data = load_data(&file_path).expect("Error reading csv");
 
-    // initiate centers random or using kmeans++
-    let mut centers = if kpp {
-        kmeans_pp(&data, n_cluster)
-    } else {
-        random_centers(&data, n_cluster)
+    let mut kmeans = KMeans {
+        num_cluster: cli.num_cluster,
+        kpp: cli.kpp,
+        tolerance: cli.tolerance,
+        max_iter: cli.max_iter,
+        ..Default::default()
     };
 
-    // main loop, assign indices and update centers
-    let mut indices: Array1<usize> = Array1::zeros(data.nrows());
-    let mut iter = 0;
-    let mut max_change = f32::INFINITY;
-    while  (max_change > cli.tolerance) & (iter < cli.max_iter) {
-        iter += 1;
-        assign_cluster_to_sample(&data, &centers, &mut indices);
-        max_change = update_centers(&data, &mut centers, &indices, n_cluster);
-    }
-    println!("Number of Iters: {iter} with max change: {max_change}");
+    let indices = kmeans.fit(&data);
+
+    println!("Number of Iters: {:?} with max change: {:?}",
+             kmeans.get_iter(), kmeans.get_max_change());
 
     // write to csv file
     let _ = write_csv(&indices, &cli.output_path);

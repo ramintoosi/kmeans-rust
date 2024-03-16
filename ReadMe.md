@@ -1,7 +1,6 @@
 # A simple implementation of KMeans algorithm in Rust
 
-This repository contains a simple implementation of the KMeans algorithm in the Rust language. Use it carefully!
-
+This repository contains a simple implementation of the KMeans algorithm in Rust, created for my practice. Use it carefully!
 ## How to use
 
 1. Clone and build with cargo

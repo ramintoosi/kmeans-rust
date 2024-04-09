@@ -17,7 +17,12 @@ fn main() {
     let file_path = cli.data_path;
 
     // load data
-    let data = load_data(&file_path).expect("Error reading csv");
+    let data = load_data(&file_path);
+    // let data = match load_data(&file_path){
+    //     Ok(data) => data,
+    //     Err(error) => panic!("Error reading csv file: {:?}", error),
+    // };
+    // let data = load_data(&file_path).unwrap();
 
     let mut kmeans = KMeans {
         num_cluster: cli.num_cluster,
@@ -33,6 +38,8 @@ fn main() {
              kmeans.get_iter(), kmeans.get_max_change());
 
     // write to csv file
-    let _ = write_csv(&indices, &cli.output_path);
-
+    let _ = match write_csv(&indices, &cli.output_path) {
+        Ok(_) => println!("Results wrote to {:?}", cli.output_path),
+        Err(e) => panic!("Results cannot be saved: {:?}", e)
+    };
 }
